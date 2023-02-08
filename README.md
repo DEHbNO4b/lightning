@@ -1,2 +1,2 @@
 # lightning
-klastering laghtning data 
+Klastering laghtning data 
