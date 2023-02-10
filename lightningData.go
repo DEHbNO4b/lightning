@@ -2,12 +2,29 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var dsn string = "postgres://postgres:917836@localhost:5432/lightning?"
+
+var queryMakeTab = ` drop table if exists strikes;
+					create table if not exists strikes(
+						id serial primary key,
+						time timestamptz,
+						latitude numeric(6,4),
+						longitude numeric(6,4),
+						signal smallint,
+						cloud boolean,
+						cluster integer
+					);`
+
+var queryInsert string = `INSERT INTO strikes (time,latitude,longitude,signal,cloud) 
+							values($1,$2,$3,$4,$5)`
 
 // структура разрядов молний
 type lightning struct {
@@ -19,28 +36,50 @@ type lightning struct {
 	err       error
 }
 
-type dataReader struct {
+type lightningData struct {
+	data []lightning
+	db   *sql.DB
 }
 
-func (dr dataReader) readFromFile(filename string) []lightning {
+func NewLightningData() (*lightningData, error) {
+	ld := lightningData{}
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, err = db.Exec(queryMakeTab)
+	if err != nil {
+		return nil, err
+	}
+	ld.db = db
+	return &ld, nil
+}
+func (ld *lightningData) readFromFile(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Printf("cannot open file %s", filename)
+		return err
 	}
 	defer file.Close()
-	data := make([]lightning, 0)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 		stroke := parseLightning(line)
-		data = append(data, stroke)
+		ld.data = append(ld.data, stroke)
 	}
 	if err := scanner.Err(); err != nil {
-		panic(err)
+		return err
 	}
-	return data
+	return nil
 }
-
+func (ld *lightningData) loadDataToDb() error {
+	for _, el := range ld.data {
+		_, err := ld.db.Exec(queryInsert, el.time, el.latitude, el.longitude, el.signal, el.cloud)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 func parseLightning(s string) lightning {
 	l := lightning{}
 	data := strings.Split(s, "\t")
