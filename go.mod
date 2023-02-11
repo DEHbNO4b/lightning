@@ -2,10 +2,12 @@ module github.com/DEHbNO4b/lightning.git
 
 go 1.19
 
-require github.com/jackc/pgx v3.6.2+incompatible
+require (
+	github.com/asmarques/geodist v1.0.1
+	github.com/jackc/pgx v3.6.2+incompatible
+)
 
 require (
-	github.com/asmarques/geodist v1.0.1 // indirect
 	github.com/cockroachdb/apd v1.1.0 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/jackc/fake v0.0.0-20150926172116-812a484cc733 // indirect

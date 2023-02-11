@@ -12,7 +12,7 @@ import (
 
 var dsn string = "postgres://postgres:917836@localhost:5432/lightning?"
 
-var queryMakeTab = ` drop table if exists strikes;
+var queryMakeTab string = ` drop table if exists strikes;
 					create table if not exists strikes(
 						id serial primary key,
 						time timestamptz,
@@ -24,7 +24,8 @@ var queryMakeTab = ` drop table if exists strikes;
 					);`
 
 var queryInsert string = `INSERT INTO strikes (time,latitude,longitude,signal,cloud) 
-							values($1,$2,$3,$4,$5)`
+							VALUES($1,$2,$3,$4,$5)
+							RETURNING ID;`
 
 // структура разрядов молний
 type lightning struct {
@@ -34,6 +35,8 @@ type lightning struct {
 	signal    int
 	cloud     bool
 	err       error
+	cluster   int
+	id        int
 }
 
 type lightningData struct {
@@ -72,11 +75,13 @@ func (ld *lightningData) readFromFile(filename string) error {
 	return nil
 }
 func (ld *lightningData) loadDataToDb() error {
-	for _, el := range ld.data {
-		_, err := ld.db.Exec(queryInsert, el.time, el.latitude, el.longitude, el.signal, el.cloud)
+	for i, el := range ld.data {
+		var idInDB int
+		err := ld.db.QueryRow(queryInsert, el.time, el.latitude, el.longitude, el.signal, el.cloud).Scan(&idInDB)
 		if err != nil {
 			return err
 		}
+		ld.data[i].id = idInDB
 	}
 	return nil
 }
@@ -137,4 +142,20 @@ func parseLightning(s string) lightning {
 	t := time.Date(year, time.Month(month), day, hour, min, sec, nano, time.UTC)
 	l.time = t
 	return l
+}
+func (ld *lightningData) calculateDbscan(eps float32, minPts int) error {
+	//cluster := 0 //счетчик кластеров
+	for _, el := range ld.data {
+		if el.cluster != 0 { //точка была просмотрена во внутреннем цикле
+			continue
+		}
+		//находим соседей
+	}
+
+	return nil
+}
+func neighbors(l lightning) []lightning {
+
+	ans := []lightning{}
+	return ans
 }
