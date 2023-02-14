@@ -18,13 +18,15 @@ var queryMakeTab string = ` drop table if exists strikes;
 						time timestamptz,
 						latitude numeric(6,4),
 						longitude numeric(6,4),
+						geog GEOGRAPHY(Point),
 						signal smallint,
 						cloud boolean,
 						cluster integer
 					);`
+var queryMakeIndex string = `CREATE INDEX ON strikes USING GIST(geog);`
 
-var queryInsert string = `INSERT INTO strikes (time,latitude,longitude,signal,cloud) 
-							VALUES($1,$2,$3,$4,$5)
+var queryInsert string = `INSERT INTO strikes (time,geog,signal,cloud) 
+							VALUES($1,ST_MakePoint($2, $3)::GEOGRAPHY,$4,$5)
 							RETURNING ID;`
 
 // структура разрядов молний
@@ -54,6 +56,10 @@ func NewLightningData() (*lightningData, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec(queryMakeIndex)
+	if err != nil {
+		return nil, err
+	}
 	ld.db = db
 	return &ld, nil
 }
@@ -77,12 +83,15 @@ func (ld *lightningData) readFromFile(filename string) error {
 func (ld *lightningData) loadDataToDb() error {
 	for i, el := range ld.data {
 		var idInDB int
-		err := ld.db.QueryRow(queryInsert, el.time, el.latitude, el.longitude, el.signal, el.cloud).Scan(&idInDB)
+		err := ld.db.QueryRow(queryInsert, el.time, el.longitude, el.latitude, el.signal, el.cloud).Scan(&idInDB)
 		if err != nil {
 			return err
 		}
+
 		ld.data[i].id = idInDB
+
 	}
+
 	return nil
 }
 func parseLightning(s string) lightning {
