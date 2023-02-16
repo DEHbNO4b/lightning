@@ -1,10 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"database/sql"
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -12,8 +8,8 @@ import (
 
 var dsn string = "postgres://postgres:917836@localhost:5432/lightning?"
 
-var queryMakeTab string = ` drop table if exists strikes;
-					create table if not exists strikes(
+var queryMakeTab string = ` DROP TABLE IF EXISTS strikes;
+					CREATE TABLE IF NOT EXISTS strikes(
 						id serial primary key,
 						time timestamptz,
 						latitude numeric(6,4),
@@ -25,77 +21,12 @@ var queryMakeTab string = ` drop table if exists strikes;
 					);`
 var queryMakeIndex string = `CREATE INDEX ON strikes USING GIST(geog);`
 
-var queryInsert string = `INSERT INTO strikes (time,geog,signal,cloud) 
-							VALUES($1,ST_MakePoint($2, $3)::GEOGRAPHY,$4,$5)
+var queryInsert string = `INSERT INTO strikes (time,longitude,latitude,geog,signal,cloud) 
+							VALUES($1,$2,$3,ST_MakePoint($4, $5)::GEOGRAPHY,$6,$7)
 							RETURNING ID;`
 
-// структура разрядов молний
-type lightning struct {
-	time      time.Time
-	latitude  float32
-	longitude float32
-	signal    int
-	cloud     bool
-	err       error
-	cluster   int
-	id        int
-}
-
-type lightningData struct {
-	data []lightning
-	db   *sql.DB
-}
-
-func NewLightningData() (*lightningData, error) {
-	ld := lightningData{}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		fmt.Println(err)
-	}
-	_, err = db.Exec(queryMakeTab)
-	if err != nil {
-		return nil, err
-	}
-	_, err = db.Exec(queryMakeIndex)
-	if err != nil {
-		return nil, err
-	}
-	ld.db = db
-	return &ld, nil
-}
-func (ld *lightningData) readFromFile(filename string) error {
-	file, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		stroke := parseLightning(line)
-		ld.data = append(ld.data, stroke)
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	return nil
-}
-func (ld *lightningData) loadDataToDb() error {
-	for i, el := range ld.data {
-		var idInDB int
-		err := ld.db.QueryRow(queryInsert, el.time, el.longitude, el.latitude, el.signal, el.cloud).Scan(&idInDB)
-		if err != nil {
-			return err
-		}
-
-		ld.data[i].id = idInDB
-
-	}
-
-	return nil
-}
-func parseLightning(s string) lightning {
-	l := lightning{}
+func parseStroke(s string) stroke {
+	l := stroke{}
 	data := strings.Split(s, "\t")
 	//parse cloud
 	cloud, err := strconv.ParseBool(data[21])
@@ -151,20 +82,4 @@ func parseLightning(s string) lightning {
 	t := time.Date(year, time.Month(month), day, hour, min, sec, nano, time.UTC)
 	l.time = t
 	return l
-}
-func (ld *lightningData) calculateDbscan(eps float32, minPts int) error {
-	//cluster := 0 //счетчик кластеров
-	for _, el := range ld.data {
-		if el.cluster != 0 { //точка была просмотрена во внутреннем цикле
-			continue
-		}
-		//находим соседей
-	}
-
-	return nil
-}
-func neighbors(l lightning) []lightning {
-
-	ans := []lightning{}
-	return ans
 }
