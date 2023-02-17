@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bufio"
+	"database/sql"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -18,12 +21,57 @@ var queryMakeTab string = ` DROP TABLE IF EXISTS strikes;
 						signal smallint,
 						cloud boolean,
 						cluster integer
-					);`
-var queryMakeIndex string = `CREATE INDEX ON strikes USING GIST(geog);`
+					);
+					CREATE INDEX ON strikes USING GIST(geog);`
 
 var queryInsert string = `INSERT INTO strikes (time,longitude,latitude,geog,signal,cloud) 
 							VALUES($1,$2,$3,ST_MakePoint($4, $5)::GEOGRAPHY,$6,$7)
 							RETURNING ID;`
+
+func readFromFile(filename string) ([]stroke, error) {
+	var data []stroke
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		stroke := parseStroke(line)
+		data = append(data, stroke)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+func openDB() (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec(queryMakeTab)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func loadDataToDb(strokes []stroke, db *sql.DB) (map[string]stroke, error) {
+	data := make(map[string]stroke, len(strokes))
+	for i, el := range strokes {
+		var idInDB int
+		err := db.QueryRow(queryInsert, el.time, el.longitude, el.latitude, el.longitude, el.latitude, el.signal, el.cloud).Scan(&idInDB)
+		if err != nil {
+			return nil, err
+		}
+		strokes[i].id = idInDB
+		data[strconv.Itoa(idInDB)] = strokes[i]
+	}
+
+	return data, nil
+}
 
 func parseStroke(s string) stroke {
 	l := stroke{}
