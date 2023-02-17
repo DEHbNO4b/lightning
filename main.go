@@ -3,11 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	_ "github.com/jackc/pgx/stdlib"
 )
 
 var filename string = "./public/Repr.2022.07.03.txt"
+var testfilename string = "./public/test.txt"
 
 func main() {
 	strokes, err := readFromFile(filename)
@@ -26,31 +28,27 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%#v", data["1"])
 
-	s := stroke{latitude: 47, longitude: 47}
-	n, err := s.neighbours(DB, 100000)
-
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("count neighbors:", len(n))
-
-	var eps int = 50000 //метры радиуса поиска соседей
-	var minPts int = 3  //количество необходимых соседей
+	var eps int = 100000 //метры радиуса поиска соседей
+	var minPts int = 2   //количество необходимых соседей
 
 	data, err = dbscan(data, DB, eps, minPts)
 	if err != nil {
 		fmt.Println("dbscan err:", err)
 	}
-
-	fmt.Printf("%#v", data["4000"])
-
+	for key, el := range data {
+		id, _ := strconv.Atoi(key)
+		_, err := DB.Exec(`UPDATE strikes SET cluster = $1 WHERE id = $2`, el.claster, id)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
 
 func dbscan(data map[string]stroke, db *sql.DB, eps int, minPts int) (map[string]stroke, error) {
+	claster := 0
 	for key, val := range data {
-		claster := 0
+
 		if val.claster != 0 {
 			continue
 		}
@@ -87,7 +85,6 @@ func dbscan(data map[string]stroke, db *sql.DB, eps int, minPts int) (map[string
 				}
 			}
 		}
-
 	}
 	return data, nil
 }
