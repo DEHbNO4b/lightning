@@ -9,14 +9,15 @@ import (
 )
 
 var filename string = "./public/Repr.2022.07.03.txt"
-var testfilename string = "./public/test.txt"
+
+//var testfilename string = "./public/test.txt"
 
 func main() {
 	strokes, err := readFromFile(filename)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("datalen:", len(strokes))
+	fmt.Println("Readed data len:", len(strokes))
 
 	DB, err := openDB()
 	if err != nil {
@@ -57,25 +58,25 @@ func dbscan(data map[string]stroke, db *sql.DB, eps int, minPts int) (map[string
 			return nil, err
 		}
 		if len(neighbours) < minPts {
-			stroke := data[key]
-			stroke.claster = -1
-			data[key] = stroke
+			// stroke := data[key]
+			// stroke.claster = -1
+			// data[key] = stroke
 			continue
 		}
 		claster++
+		count := 0
 		stroke := data[key]
 		stroke.claster = claster
 		data[key] = stroke
+		count++
 		seed := neighbours
 		delete(seed, key)
 		for key, val := range seed {
-			if val.claster != 0 {
+			if data[key].claster > 0 {
 				continue
 			}
-			stroke := data[key]
-			stroke.claster = claster
-			data[key] = stroke
-			n, err := stroke.neighbours(db, eps)
+
+			n, err := val.neighbours(db, eps)
 			if err != nil {
 				return nil, err
 			}
@@ -83,8 +84,17 @@ func dbscan(data map[string]stroke, db *sql.DB, eps int, minPts int) (map[string
 				for k, v := range n {
 					seed[k] = v
 				}
+				stroke := data[key]
+				stroke.claster = claster
+				data[key] = stroke
+				s := seed[key]
+				s.claster = claster
+				seed[key] = s
+				count++
 			}
+
 		}
+		fmt.Printf("cluster= %d , count = %d\n", claster, count)
 	}
 	return data, nil
 }
