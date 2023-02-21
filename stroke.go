@@ -1,12 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"strconv"
 	"time"
 )
-
-var queryNeighbors string = `SELECT id,longitude,latitude FROM strikes WHERE geog<->st_setSRID(st_makePoint($1,$2),4326)::GEOGRAPHY < $3;`
 
 type stroke struct {
 	time      time.Time
@@ -18,22 +15,56 @@ type stroke struct {
 	claster   int
 	id        int
 }
+type ineighbours interface {
+	get(long, lat float32, eps int) (map[string]stroke, error)
+}
 
-func (s *stroke) neighbours(db *sql.DB, eps int) (map[string]stroke, error) {
-	var ans = make(map[string]stroke)
-	var lat, long float32
-	var id int
-	rows, err := db.Query(queryNeighbors, s.longitude, s.latitude, eps)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		if err = rows.Scan(&id, &long, &lat); err != nil {
+func (s *stroke) neighbours(n ineighbours, eps int) (map[string]stroke, error) {
+	return n.get(s.longitude, s.latitude, eps)
+
+}
+func dbscan(data map[string]stroke, neigh ineighbours, eps int, minPts int) (map[string]stroke, error) {
+	claster := 0
+	for key, val := range data { //начинаем обход данных
+		if val.claster != 0 { //если уже просмотрен, то пропускаем
+			continue
+		}
+		neighbours, err := val.neighbours(neigh, eps) //находим соседей
+		if err != nil {
 			return nil, err
 		}
-		s := stroke{id: id, longitude: long, latitude: lat}
-		ans[strconv.Itoa(id)] = s
+		delete(neighbours, key)
+		if len(neighbours) < minPts { //если соседей меньше чем minPts то помечаем как шум
+			stroke := data[key]
+			stroke.claster = -1
+			data[key] = stroke
+			continue
+		}
+		claster++
+
+		stroke := data[key] //начинаем новый кластер
+		stroke.claster = claster
+		data[key] = stroke
+		for _, val := range neighbours {
+			expandClaster(neigh, data, claster, val, eps, minPts)
+		}
 	}
-	return ans, nil
+	return data, nil
+}
+func expandClaster(neigh ineighbours, data map[string]stroke, claster int, s stroke, eps int, minPts int) {
+	d := data[strconv.Itoa(s.id)]
+	if d.claster > 0 {
+		return
+	}
+	d.claster = claster
+	data[strconv.Itoa(s.id)] = d
+	n, _ := s.neighbours(neigh, eps)
+	delete(n, strconv.Itoa(s.id))
+
+	if len(n) > minPts {
+		for _, v := range n {
+			expandClaster(neigh, data, claster, v, eps, minPts)
+		}
+
+	}
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -30,10 +29,12 @@ func main() {
 		panic(err)
 	}
 
+	neigh := NewNeighbours(DB)
+
 	var eps int = 80000 //метры радиуса поиска соседей
 	var minPts int = 2  //количество необходимых соседей
 
-	data, err = dbscan(data, DB, eps, minPts)
+	data, err = dbscan(data, &neigh, eps, minPts)
 	if err != nil {
 		fmt.Println("dbscan err:", err)
 	}
@@ -43,51 +44,5 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-	}
-}
-
-func dbscan(data map[string]stroke, db *sql.DB, eps int, minPts int) (map[string]stroke, error) {
-	claster := 0
-	for key, val := range data { //начинаем обход данных
-		if val.claster != 0 { //если уже просмотрен, то пропускаем
-			continue
-		}
-		neighbours, err := val.neighbours(db, eps) //находим соседей
-		if err != nil {
-			return nil, err
-		}
-		delete(neighbours, key)
-		if len(neighbours) < minPts { //если соседей меньше чем minPts то помечаем как шум
-			stroke := data[key]
-			stroke.claster = -1
-			data[key] = stroke
-			continue
-		}
-		claster++
-
-		stroke := data[key] //начинаем новый кластер
-		stroke.claster = claster
-		data[key] = stroke
-		for _, val := range neighbours {
-			expandClaster(db, data, claster, val, eps, minPts)
-		}
-	}
-	return data, nil
-}
-func expandClaster(db *sql.DB, data map[string]stroke, claster int, s stroke, eps int, minPts int) {
-	d := data[strconv.Itoa(s.id)]
-	if d.claster > 0 {
-		return
-	}
-	d.claster = claster
-	data[strconv.Itoa(s.id)] = d
-	n, _ := s.neighbours(db, eps)
-	delete(n, strconv.Itoa(s.id))
-
-	if len(n) > minPts {
-		for _, v := range n {
-			expandClaster(db, data, claster, v, eps, minPts)
-		}
-
 	}
 }

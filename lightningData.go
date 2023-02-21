@@ -27,7 +27,33 @@ var queryMakeTab string = ` DROP TABLE IF EXISTS strikes;
 var queryInsert string = `INSERT INTO strikes (time,longitude,latitude,geog,signal,cloud) 
 							VALUES($1,$2,$3,ST_MakePoint($4, $5)::GEOGRAPHY,$6,$7)
 							RETURNING ID;`
+var queryNeighbors string = `SELECT id,longitude,latitude FROM strikes WHERE geog<->st_setSRID(st_makePoint($1,$2),4326)::GEOGRAPHY < $3;`
 
+type neighbours struct {
+	db *sql.DB
+}
+
+func NewNeighbours(db *sql.DB) neighbours {
+	return neighbours{db: db}
+}
+func (n *neighbours) get(long, lat float32, eps int) (map[string]stroke, error) {
+	var ans = make(map[string]stroke)
+	var latitude, longitude float32
+	var id int
+	rows, err := n.db.Query(queryNeighbors, long, lat, eps)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err = rows.Scan(&id, &longitude, &latitude); err != nil {
+			return nil, err
+		}
+		s := stroke{id: id, longitude: longitude, latitude: latitude}
+		ans[strconv.Itoa(id)] = s
+	}
+	return ans, nil
+}
 func readFromFile(filename string) ([]stroke, error) {
 	var data []stroke
 	file, err := os.Open(filename)
