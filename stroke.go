@@ -16,11 +16,11 @@ type stroke struct {
 	id        int
 }
 type ineighbours interface {
-	get(long, lat float32, eps int) (map[string]stroke, error)
+	getNeighbourse(long, lat float32, eps int) (map[string]stroke, error)
 }
 
 func (s *stroke) neighbours(n ineighbours, eps int) (map[string]stroke, error) {
-	return n.get(s.longitude, s.latitude, eps)
+	return n.getNeighbourse(s.longitude, s.latitude, eps)
 
 }
 func dbscan(data map[string]stroke, neigh ineighbours, eps int, minPts int) (map[string]stroke, error) {
