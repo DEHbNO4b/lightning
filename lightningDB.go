@@ -80,3 +80,13 @@ func (n *lightningDB) loadRawToDb(strokes []stroke) (map[string]stroke, error) {
 
 	return data, nil
 }
+func (n *lightningDB) loadClasterToDb(data map[string]stroke) error {
+	for key, el := range data {
+		id, _ := strconv.Atoi(key)
+		_, err := n.db.Exec(`UPDATE strikes SET cluster = $1 WHERE id = $2`, el.claster, id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 
 	_ "github.com/jackc/pgx/stdlib"
 )
@@ -41,11 +40,8 @@ func main() {
 	if err != nil {
 		fmt.Println("dbscan err:", err)
 	}
-	for key, el := range data {
-		id, _ := strconv.Atoi(key)
-		_, err := ldb.db.Exec(`UPDATE strikes SET cluster = $1 WHERE id = $2`, el.claster, id)
-		if err != nil {
-			fmt.Println(err)
-		}
+	err = ldb.loadClasterToDb(data)
+	if err != nil {
+		fmt.Println("load claster to db err:", err)
 	}
 }
