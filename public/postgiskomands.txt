@@ -1,0 +1,1 @@
+select st_buffer(st_convexHull(st_collect(geog::geometry)), 0.0004) from strikes where cluster =1;
