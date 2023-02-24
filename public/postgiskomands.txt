@@ -1,1 +1,9 @@
 select st_buffer(st_convexHull(st_collect(geog::geometry)), 0.0004) from strikes where cluster =1;
+
+insert into thunder (geog) 
+values ((select st_transform(st_convexHull(st_collect(geog::geometry)),4267) 
+from strikes where cluster =1));
+
+select st_area(geog) from thunders where cluster = 1;
+
+update thunders as t set capacity = (select count(*) from strikes as s where t.cluster = s.cluster);
