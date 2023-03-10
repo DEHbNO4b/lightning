@@ -1,8 +1,10 @@
-package main
+package maindb
 
 import (
 	"database/sql"
 	"strconv"
+
+	"github.com/DEHbNO4b/lightning.git/internal/domain/models"
 )
 
 var dsn string = "postgres://postgres:917836@localhost:5432/lightning?"
@@ -25,18 +27,18 @@ var queryInsert string = `INSERT INTO strikes (time,longitude,latitude,geog,sign
 							RETURNING ID;`
 var queryNeighbors string = `SELECT id,longitude,latitude FROM strikes WHERE geog<->st_setSRID(st_makePoint($1,$2),4326)::GEOGRAPHY < $3;`
 
-type lightningDB struct {
-	db *sql.DB
+type LightningDB struct {
+	Db *sql.DB
 }
 
-func NewLightningDB(db *sql.DB) lightningDB {
-	return lightningDB{db: db}
-}
-func (n *lightningDB) getNeighbourse(long, lat float32, eps int) (map[string]stroke, error) {
-	var ans = make(map[string]stroke)
+//	func NewLightningDB(db *sql.DB) LightningDB {
+//		return LightningDB{Db: db}
+//	}
+func (n *LightningDB) GetNeighbourse(long, lat float32, eps int) (map[string]models.Stroke, error) {
+	var ans = make(map[string]models.Stroke)
 	var latitude, longitude float32
 	var id int
-	rows, err := n.db.Query(queryNeighbors, long, lat, eps)
+	rows, err := n.Db.Query(queryNeighbors, long, lat, eps)
 	if err != nil {
 		return nil, err
 	}
@@ -45,45 +47,45 @@ func (n *lightningDB) getNeighbourse(long, lat float32, eps int) (map[string]str
 		if err = rows.Scan(&id, &longitude, &latitude); err != nil {
 			return nil, err
 		}
-		s := stroke{id: id, longitude: longitude, latitude: latitude}
+		s := models.Stroke{Id: id, Longitude: longitude, Latitude: latitude}
 		ans[strconv.Itoa(id)] = s
 	}
 	return ans, nil
 }
 
-func (n *lightningDB) openDB() error {
+func (n *LightningDB) OpenDB() error {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return err
 	}
-	n.db = db
+	n.Db = db
 	return nil
 }
-func (n *lightningDB) makeTab() error {
-	_, err := n.db.Exec(queryMakeTab)
+func (n *LightningDB) MakeTab() error {
+	_, err := n.Db.Exec(queryMakeTab)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (n *lightningDB) loadRawToDb(strokes []stroke) (map[string]stroke, error) {
-	data := make(map[string]stroke, len(strokes))
+func (n *LightningDB) LoadRawToDb(strokes []models.Stroke) (map[string]models.Stroke, error) {
+	data := make(map[string]models.Stroke, len(strokes))
 	for i, el := range strokes {
 		var idInDB int
-		err := n.db.QueryRow(queryInsert, el.time, el.longitude, el.latitude, el.longitude, el.latitude, el.signal, el.cloud).Scan(&idInDB)
+		err := n.Db.QueryRow(queryInsert, el.Time, el.Longitude, el.Latitude, el.Longitude, el.Latitude, el.Signal, el.Cloud).Scan(&idInDB)
 		if err != nil {
 			return nil, err
 		}
-		strokes[i].id = idInDB
+		strokes[i].Id = idInDB
 		data[strconv.Itoa(idInDB)] = strokes[i]
 	}
 
 	return data, nil
 }
-func (n *lightningDB) loadClasterToDb(data map[string]stroke) error {
+func (n *LightningDB) LoadClasterToDb(data map[string]models.Stroke) error {
 	for key, el := range data {
 		id, _ := strconv.Atoi(key)
-		_, err := n.db.Exec(`UPDATE strikes SET cluster = $1 WHERE id = $2`, el.claster, id)
+		_, err := n.Db.Exec(`UPDATE strikes SET cluster = $1 WHERE id = $2`, el.Claster, id)
 		if err != nil {
 			return err
 		}

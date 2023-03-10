@@ -6,11 +6,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DEHbNO4b/lightning.git/internal/domain/models"
 )
 
 type vails struct {
-	raw    []stroke
-	dbData map[string]stroke
+	raw    []models.Stroke
+	dbData map[string]models.Stroke
 }
 
 func (v *vails) readFromFile(filename string) error {
@@ -30,61 +32,61 @@ func (v *vails) readFromFile(filename string) error {
 	}
 	return nil
 }
-func parseStroke(s string) stroke {
-	l := stroke{}
+func parseStroke(s string) models.Stroke {
+	l := models.Stroke{}
 	data := strings.Split(s, "\t")
 	//parse cloud
 	cloud, err := strconv.ParseBool(data[21])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
-	l.cloud = cloud
+	l.Cloud = cloud
 	//parse signal
 	sig, err := strconv.Atoi(data[10])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
-	l.signal = sig
+	l.Signal = sig
 	//parse longitude
 	if long, err := strconv.ParseFloat(data[9], 32); err == nil {
-		l.longitude = float32(long)
+		l.Longitude = float32(long)
 	}
 	//parse latitude
 	if lat, err := strconv.ParseFloat(data[8], 32); err == nil {
-		l.latitude = float32(lat)
+		l.Latitude = float32(lat)
 	}
 
 	//parse time
 	year, err := strconv.Atoi(data[1])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 	month, err := strconv.Atoi(data[2])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 	day, err := strconv.Atoi(data[3])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 	hour, err := strconv.Atoi(data[4])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 	min, err := strconv.Atoi(data[5])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 	sec, err := strconv.Atoi(data[6])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 	nano, err := strconv.Atoi(data[7])
 	if err != nil {
-		l.err = err
+		l.Err = err
 	}
 
 	t := time.Date(year, time.Month(month), day, hour, min, sec, nano, time.UTC)
-	l.time = t
+	l.Time = t
 	return l
 }
